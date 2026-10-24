@@ -101,7 +101,25 @@
                 + Add Shift Batch
             </button>
         </div>
-
+<!-- Date-Wise History Filter Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-blue-50 rounded-xl text-blue-600 font-bold">📅</div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-sm">View Date-Wise Trip History</h3>
+                    <p class="text-xs text-slate-400">Select any past date to review completed bus arrivals and headcounts.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="date" id="historyDateInput" class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-medium focus:outline-none focus:border-blue-500">
+                <button onclick="fetchHistoryByDate()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-sm">
+                    Load Date Logs
+                </button>
+                <button onclick="resetLiveView()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs transition">
+                    Back to Live
+                </button>
+            </div>
+        </div>
         <!-- Registered Drivers, Routes & Live Headcount Display Table -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-2">
@@ -256,6 +274,55 @@
     <script id="initialRoutesData" type="application/json"><%- JSON.stringify(routes || []) %></script>
 
     <script>
+        async function fetchHistoryByDate() {
+            const dateVal = document.getElementById('historyDateInput').value;
+            if (!dateVal) {
+                alert("Please select a date first!");
+                return;
+            }
+            try {
+                const res = await fetch(`/api/history?date=${dateVal}`);
+                const data = await res.json();
+
+                document.getElementById('totalEmployeesCount').textContent = data.totalEmployees;
+                document.getElementById('totalRoutesCount').textContent = data.logs.length;
+                document.getElementById('lastPollTime').textContent = `● Archive Date: ${data.date}`;
+
+                const tbody = document.getElementById('routesTableBody');
+                if (!data.logs || data.logs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-10 text-center text-slate-400 font-medium">No completed trip logs found for date: ${data.date}</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.logs.map(log => `
+                    <tr class="hover:bg-slate-50/70 transition bg-blue-50/30">
+                        <td class="px-5 py-4">
+                            <div class="font-bold text-slate-800">${log.routeName}</div>
+                            <span class="text-xs text-indigo-600 font-semibold">${log.batch}</span>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="font-bold text-slate-700">${log.vehicleNo}</div>
+                            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">Archived Log</span>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="font-semibold text-slate-800">${log.driverName}</div>
+                        </td>
+                        <td class="px-5 py-4"><span class="text-xs text-slate-400">—</span></td>
+                        <td class="px-5 py-4"><span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">✅ Completed</span></td>
+                        <td class="px-5 py-4"><span class="font-black text-blue-600 text-2xl">${log.headcount}</span></td>
+                        <td class="px-5 py-4 text-slate-500 text-xs font-medium">${log.submittedAt}</td>
+                        <td class="px-5 py-4 text-right text-xs text-slate-400">Archived</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error fetching history:", err);
+            }
+        }
+
+        function resetLiveView() {
+            document.getElementById('historyDateInput').value = '';
+            syncLiveCounts();
+        }
         let currentRoutesCache = JSON.parse(document.getElementById('initialRoutesData').textContent || '[]');
         function openModal(id) {
             const modal = document.getElementById(id);

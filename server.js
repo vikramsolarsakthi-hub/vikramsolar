@@ -200,7 +200,7 @@ app.post("/driver/portal", (req, res) => {
   res.render("driver", { route });
 });
 
-// Driver Update Headcount & Lock Endpoint
+// Driver Update Headcount & Lock Endpoint with Date History Logging
 app.post("/driver/update", (req, res) => {
   routesData = loadJSON(ROUTES_FILE);
   const { routeId, headcount, tripStatus, lockSubmission } = req.body;
@@ -221,22 +221,41 @@ app.post("/driver/update", (req, res) => {
 
   route.headcount = Math.max(0, parseInt(headcount, 10) || 0);
 
-  if (lockSubmission) {
-    route.tripStatus = "Arrived at Plant";
-    route.isLocked = true;
-  } else if (tripStatus) {
-    route.tripStatus = tripStatus;
-  } else if (route.headcount > 0 && route.tripStatus === "Yet to Start") {
-    route.tripStatus = "En Route";
-  }
-
-  route.lastUpdated = new Date().toLocaleTimeString("en-IN", {
+  const currentDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD format
+  const currentTime = new Date().toLocaleTimeString("en-IN", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   });
 
+  route.tripDate = currentDate;
+
+  if (lockSubmission) {
+    route.tripStatus = "Arrived at Plant";
+    route.isLocked = true;
+
+    // Save to historical logs file for date-wise viewing
+    const HISTORY_FILE = path.join(STORAGE_DIR, "history.json");
+    let historyData = loadJSON(HISTORY_FILE);
+    historyData.push({
+      date: currentDate,
+      routeId: route.id,
+      routeName: route.routeName,
+      vehicleNo: route.vehicleNo,
+      driverName: route.driverName,
+      batch: route.batch,
+      headcount: route.headcount,
+      submittedAt: currentTime,
+    });
+    saveJSON(HISTORY_FILE, historyData);
+  } else if (tripStatus) {
+    route.tripStatus = tripStatus;
+  } else if (route.headcount > 0 && route.tripStatus === "Yet to Start") {
+    route.tripStatus = "En Route";
+  }
+
+  route.lastUpdated = currentTime;
   saveJSON(ROUTES_FILE, routesData);
 
   res.json({
@@ -248,15 +267,17 @@ app.post("/driver/update", (req, res) => {
   });
 });
 
-// Local server startup
-const PORT = process.env.PORT || 3000;
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(
-      `Vikram Solar Fleet Tracker Live on http://localhost:${PORT}/admin`,
-    );
-  });
-}
+// API to fetch historical logs date-wise
+app.get("/api/history", (req, res) => {
+  const HISTORY_FILE = path.join(STORAGE_DIR, "history.json");
+  const historyData = loadJSON(HISTORY_FILE);
+  const selectedDate = req.query.date || new Date().toLocaleDateString("en-CA");
 
-// Export Express app for Vercel Serverless
-module.exports = app;
+  const filtered = historyData.filter((h) => h.date === selectedDate);
+  const total = filtered.reduce(
+    (acc, h) => acc + (parseInt(h.headcount, 10) || 0),
+    0,
+  );
+
+  res.json({ date: selectedDate, logs: filtered, totalEmployees: total });
+});

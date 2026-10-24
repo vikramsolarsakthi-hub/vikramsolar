@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Fleet Dashboard | Vikram Solar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+    <!-- Top Navbar -->
+    <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <img src="/logo.png" alt="Vikram Solar" class="h-9 sm:h-10 object-contain" onerror="this.style.display='none'; document.getElementById('fallbackLogo').style.display='flex';">
+                <div id="fallbackLogo" style="display:none;" class="bg-gradient-to-tr from-amber-500 to-emerald-600 text-white font-black px-3 py-1.5 rounded-xl text-base tracking-wider shadow-sm">VS</div>
+                <div class="border-l pl-3 border-slate-200">
+                    <h1 class="font-extrabold text-slate-900 tracking-tight text-base sm:text-lg leading-none">VIKRAM SOLAR</h1>
+                    <span class="text-[11px] font-semibold text-emerald-600 uppercase tracking-widest">Employee Transport & Fleet Hub</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <button onclick="openModal('batchModal')" class="flex-1 sm:flex-none justify-center bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5">
+                    <span>➕</span> Create Batch
+                </button>
+                <button onclick="openModal('routeModal')" class="flex-1 sm:flex-none justify-center bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5">
+                    <span>🚌</span> Create Route
+                </button>
+                <a href="/driver/login" target="_blank" class="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition">
+                    Driver Portal ↗
+                </a>
+                <button onclick="exportCSV()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold transition">
+                    ⬇ CSV
+                </button>
+                <form action="/admin/reset" method="POST" onsubmit="return confirm('Reset all employee counts to 0 and unlock all drivers for the next shift?');" class="inline">
+                    <button type="submit" class="bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 px-3 py-2 rounded-xl text-xs font-bold transition">
+                        Reset Shift
+                    </button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Employees Arrived</p>
+                    <h3 id="totalEmployeesCount" class="text-3xl sm:text-4xl font-black text-emerald-600 mt-1"><%= totalEmployees %></h3>
+                </div>
+                <div class="p-3 bg-emerald-50 rounded-2xl text-emerald-600">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Configured Routes / Fleet</p>
+                    <h3 id="totalRoutesCount" class="text-3xl sm:text-4xl font-black text-slate-800 mt-1"><%= routes.length %></h3>
+                </div>
+                <div class="p-3 bg-blue-50 rounded-2xl text-blue-600">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Batches / Shifts</p>
+                    <h3 id="totalBatchesCount" class="text-3xl sm:text-4xl font-black text-indigo-600 mt-1"><%= batches.length %></h3>
+                    <p id="lastPollTime" class="text-[11px] text-emerald-600 font-semibold mt-1">● Live Sync Active</p>
+                </div>
+                <div class="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configured Shift Batches Strip -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-2">Shift Batches:</span>
+                <% if(batches.length === 0) { %>
+                    <span class="text-xs text-slate-400 italic">No custom batches created yet (Default: General Shift). Click "+ Create Batch" to add shifts.</span>
+                <% } %>
+                <% batches.forEach(b => { %>
+                    <div class="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-800 px-3 py-1 rounded-full text-xs font-bold">
+                        <span>🕒 <%= b.batchName %> (<%= b.shiftTime %>)</span>
+                        <span class="text-[10px] bg-indigo-200/70 px-1.5 py-0.5 rounded text-indigo-900"><%= b.shiftType %></span>
+                        <form action="/admin/delete-batch/<%= b.id %>" method="POST" class="inline" onsubmit="return confirm('Delete batch <%= b.batchName %>?');">
+                            <button type="submit" class="text-indigo-400 hover:text-red-600 font-black ml-1" title="Remove Batch">✕</button>
+                        </form>
+                    </div>
+                <% }) %>
+            </div>
+            <button onclick="openModal('batchModal')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
+                + Add Shift Batch
+            </button>
+        </div>
+
+        <!-- Registered Drivers, Routes & Live Headcount Display Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                    <h2 class="font-bold text-slate-800 text-base">Registered Drivers, Fleet & Live Employee Headcount</h2>
+                    <p class="text-xs text-slate-400">Once a driver submits final arrival count, their portal locks automatically.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openModal('routeModal')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition">
+                        + Add Route
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[720px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-100">
+                            <th class="px-5 py-3.5 font-bold">Route & Batch</th>
+                            <th class="px-5 py-3.5 font-bold">Vehicle & Capacity</th>
+                            <th class="px-5 py-3.5 font-bold">Driver & Contact</th>
+                            <th class="px-5 py-3.5 font-bold">Login PIN</th>
+                            <th class="px-5 py-3.5 font-bold">Trip & Lock Status</th>
+                            <th class="px-5 py-3.5 font-bold">Headcount</th>
+                            <th class="px-5 py-3.5 font-bold">Updated</th>
+                            <th class="px-5 py-3.5 font-bold text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="routesTableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- Dynamically rendered -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL 1: CREATE BATCH / SHIFT -->
+    <div id="batchModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-fadeIn">
+            <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2">🕒 Create New Shift / Batch</h3>
+                <button type="button" onclick="closeModal('batchModal')" class="text-slate-400 hover:text-white text-xl font-bold leading-none">&times;</button>
+            </div>
+            <form action="/admin/add-batch" method="POST" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Batch / Shift Name *</label>
+                    <input type="text" name="batchName" placeholder="e.g. Shift A - Morning" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Shift Timing *</label>
+                    <input type="text" name="shiftTime" placeholder="e.g. 06:00 AM - 02:00 PM" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Shift Category</label>
+                    <select name="shiftType" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-indigo-500">
+                        <option value="Morning Shift">Morning Shift</option>
+                        <option value="General Shift">General Shift</option>
+                        <option value="Afternoon Shift">Afternoon Shift</option>
+                        <option value="Night Shift">Night Shift</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeModal('batchModal')" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-md shadow-indigo-600/20">
+                        Save Batch
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CREATE ROUTE, VEHICLE & DRIVER -->
+    <div id="routeModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden my-8">
+            <div class="px-6 py-4 bg-emerald-700 text-white flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2">🚌 Register Route, Vehicle & Driver</h3>
+                <button type="button" onclick="closeModal('routeModal')" class="text-emerald-200 hover:text-white text-xl font-bold leading-none">&times;</button>
+            </div>
+            <form action="/admin/add-route" method="POST" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Route Name / Pickup Area *</label>
+                        <input type="text" name="routeName" placeholder="e.g. Route 1 - Palayamkottai" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Vehicle Type *</label>
+                        <select name="vehicleType" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-emerald-500">
+                            <option value="Bus">Bus</option>
+                            <option value="Van">Van</option>
+                            <option value="Mini Bus">Mini Bus</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Vehicle Reg Number *</label>
+                        <input type="text" name="vehicleNo" placeholder="TN-72-AB-1234" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm uppercase focus:outline-none focus:border-emerald-500 focus:bg-white">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Seat Capacity *</label>
+                        <input type="number" name="capacity" value="40" min="1" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Assign Batch / Shift *</label>
+                        <select name="batch" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-emerald-500">
+                            <% if(batches.length === 0) { %>
+                                <option value="General Shift (08:00 AM)">General Shift (08:00 AM)</option>
+                                <option value="Morning Shift A (06:00 AM)">Morning Shift A (06:00 AM)</option>
+                                <option value="Afternoon Shift B (02:00 PM)">Afternoon Shift B (02:00 PM)</option>
+                                <option value="Night Shift C (10:00 PM)">Night Shift C (10:00 PM)</option>
+                            <% } else { %>
+                                <% batches.forEach(b => { %>
+                                    <option value="<%= b.batchName %> (<%= b.shiftTime %>)"><%= b.batchName %> (<%= b.shiftTime %>)</option>
+                                <% }) %>
+                            <% } %>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Driver Full Name *</label>
+                        <input type="text" name="driverName" placeholder="e.g. Murugan K" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Driver Mobile Number *</label>
+                        <input type="tel" name="contactNo" placeholder="10-digit mobile" pattern="[0-9]{10}" title="10-digit mobile number" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Set 4-Digit Driver Login PIN *</label>
+                        <input type="text" name="driverPin" placeholder="e.g. 1234" pattern="[0-9]{4}" maxlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-base font-mono tracking-widest text-center focus:outline-none focus:border-emerald-500 focus:bg-white">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-3">
+                    <button type="button" onclick="closeModal('routeModal')" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl text-sm transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm transition shadow-md shadow-emerald-600/20">
+                        Save & Close
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+   <!-- Safely store EJS JSON data outside JavaScript so VS Code shows 0 errors -->
+    <script id="initialRoutesData" type="application/json"><%- JSON.stringify(routes || []) %></script>
+
+    <script>
+        let currentRoutesCache = JSON.parse(document.getElementById('initialRoutesData').textContent || '[]');
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Close modal if user clicks outside the box
+        window.addEventListener('click', (e) => {
+            ['batchModal', 'routeModal'].forEach(id => {
+                const modal = document.getElementById(id);
+                if (e.target === modal) closeModal(id);
+            });
+        });
+
+        function getStatusBadge(route) {
+            if (route.isLocked || route.tripStatus === 'Arrived at Plant') {
+                return '<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">🔒 Arrived & Locked</span>';
+            } else if (route.tripStatus === 'En Route') {
+                return '<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">🚌 En Route (Open)</span>';
+            }
+            return '<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold">⏳ Yet to Start</span>';
+        }
+
+        function renderTable(routes) {
+            const tbody = document.getElementById('routesTableBody');
+            if (!routes || routes.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-slate-400 font-medium">
+                            No routes registered yet. Click the <strong class="text-emerald-600">"+ Create Route"</strong> button to add your first bus or van route.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            tbody.innerHTML = routes.map(route => `
+                <tr class="hover:bg-slate-50/70 transition">
+                    <td class="px-5 py-4">
+                        <div class="font-bold text-slate-800">${route.routeName || '-'}</div>
+                        <span class="text-xs text-indigo-600 font-semibold">${route.batch || 'General Shift'}</span>
+                    </td>
+                    <td class="px-5 py-4">
+                        <div class="font-bold text-slate-700">${route.vehicleNo || '-'}</div>
+                        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">${route.vehicleType || 'Bus'} • Cap: ${route.capacity || 40}</span>
+                    </td>
+                    <td class="px-5 py-4">
+                        <div class="font-semibold text-slate-800">${route.driverName || '-'}</div>
+                        <a href="tel:${route.contactNo || ''}" class="text-xs text-blue-600 hover:underline">📞 ${route.contactNo || 'N/A'}</a>
+                    </td>
+                    <td class="px-5 py-4">
+                        <span class="font-mono text-xs bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg text-slate-700 font-bold">${route.driverPin || '----'}</span>
+                    </td>
+                    <td class="px-5 py-4">
+                        ${getStatusBadge(route)}
+                    </td>
+                    <td class="px-5 py-4">
+                        <span class="font-black text-blue-600 text-2xl">${route.headcount || 0}</span>
+                        <span class="text-xs text-slate-400 font-medium">/ ${route.capacity || 40}</span>
+                    </td>
+                    <td class="px-5 py-4 text-slate-500 text-xs font-medium">${route.lastUpdated || 'Never'}</td>
+                    <td class="px-5 py-4 text-right space-x-1">
+                        ${route.isLocked ? `
+                            <form action="/admin/unlock-route/${route.id}" method="POST" class="inline" onsubmit="return confirm('Unlock ${route.routeName} so the driver can edit headcount again?');">
+                                <button type="submit" class="text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-xs font-bold px-2.5 py-1.5 rounded-lg transition">🔓 Unlock</button>
+                            </form>
+                        ` : ''}
+                        <form action="/admin/delete-route/${route.id}" method="POST" onsubmit="return confirm('Delete route ${route.routeName}?');" class="inline">
+                            <button type="submit" class="text-red-600 hover:text-red-700 text-xs font-bold bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function syncLiveCounts() {
+            try {
+                const res = await fetch('/api/routes');
+                const data = await res.json();
+                currentRoutesCache = data.routes || [];
+
+                document.getElementById('totalEmployeesCount').textContent = data.totalEmployees || 0;
+                document.getElementById('totalRoutesCount').textContent = currentRoutesCache.length;
+                document.getElementById('lastPollTime').textContent = '● Synced ' + new Date().toLocaleTimeString();
+
+                renderTable(currentRoutesCache);
+            } catch (e) {
+                console.error('Live sync error:', e);
+            }
+        }
+
+        renderTable(currentRoutesCache);
+        setInterval(syncLiveCounts, 3000);
+
+        function exportCSV() {
+            if (!currentRoutesCache || currentRoutesCache.length === 0) {
+                alert("No routes available to export!");
+                return;
+            }
+            const headers = ["Route Name", "Batch/Shift", "Vehicle Type", "Vehicle No", "Seat Capacity", "Driver Name", "Contact No", "Trip Status", "Locked", "Employee Headcount", "Last Updated"];
+            const rows = currentRoutesCache.map(r => [
+                `"${r.routeName}"`,
+                `"${r.batch}"`,
+                `"${r.vehicleType}"`,
+                `"${r.vehicleNo}"`,
+                r.capacity || 40,
+                `"${r.driverName}"`,
+                `"${r.contactNo}"`,
+                `"${r.tripStatus || 'Yet to Start'}"`,
+                r.isLocked ? "YES" : "NO",
+                r.headcount,
+                `"${r.lastUpdated}"`
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Vikram_Solar_Fleet_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

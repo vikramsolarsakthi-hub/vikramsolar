@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Driver Panel | Vikram Solar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 flex flex-col min-h-screen select-none">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 px-4 py-3.5 flex justify-between items-center sticky top-0 z-20">
+        <div class="flex items-center space-x-2.5">
+            <img src="/logo.png" alt="Vikram Solar" class="h-8 object-contain bg-white px-2 py-1 rounded-lg" onerror="this.style.display='none'; document.getElementById('fallbackTopLogo').style.display='block';">
+            <div id="fallbackTopLogo" style="display:none;" class="bg-emerald-500 text-slate-950 font-black px-2.5 py-1 rounded-lg text-sm tracking-wide">VS</div>
+            <span class="font-bold text-sm tracking-tight">Vikram Solar Fleet</span>
+        </div>
+        <a href="/driver/login" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold px-3.5 py-1.5 rounded-lg transition">Logout</a>
+    </header>
+
+    <!-- Main Counter Panel -->
+    <main class="flex-1 max-w-md w-full mx-auto p-4 sm:p-6 flex flex-col justify-center text-center">
+        
+        <!-- Route Info Card -->
+        <div class="mb-4 bg-slate-800/80 border border-slate-700 p-4 rounded-2xl">
+            <span class="px-3 py-1 bg-indigo-900/60 text-indigo-300 border border-indigo-700/50 rounded-full text-xs font-bold"><%= route.batch %></span>
+            <h2 class="text-xl font-extrabold mt-2 text-white"><%= route.routeName %></h2>
+            <p class="text-xs text-slate-400 mt-1">
+                <%= route.vehicleType %>: <span class="text-emerald-400 font-bold"><%= route.vehicleNo %></span> • Driver: <span class="text-slate-200 font-semibold"><%= route.driverName %></span>
+            </p>
+        </div>
+
+        <!-- Locked Banner (Visible when driver has submitted final count) -->
+        <div id="lockedBanner" class="<%= route.isLocked ? 'flex' : 'hidden' %> mb-4 bg-emerald-950/90 border-2 border-emerald-500/80 p-4 rounded-2xl flex-col items-center text-center shadow-lg">
+            <span class="text-2xl mb-1">🔒</span>
+            <h3 class="text-sm font-extrabold text-emerald-300 uppercase tracking-wider">Trip Completed & Count Locked</h3>
+            <p class="text-xs text-slate-300 mt-1">Final headcount has been submitted to Admin. You cannot modify the count unless Admin unlocks this route.</p>
+        </div>
+
+        <!-- Big Headcount Controller -->
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 sm:p-6 shadow-xl mb-5">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Boarded Employee Headcount
+            </p>
+
+            <div class="flex items-center justify-center space-x-4 my-4">
+                <button type="button" id="btnMinus" onclick="adjustCount(-1)" <%= route.isLocked ? 'disabled' : '' %> class="w-16 h-16 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:pointer-events-none active:scale-95 text-3xl font-black rounded-2xl transition">-</button>
+                <input type="number" id="headcountInput" value="<%= route.headcount %>" min="0" <%= route.isLocked ? 'disabled' : '' %> class="w-28 bg-slate-900 disabled:opacity-60 text-center text-4xl font-black text-emerald-400 py-3 rounded-2xl border border-slate-700 focus:outline-none" />
+                <button type="button" id="btnPlus" onclick="adjustCount(1)" <%= route.isLocked ? 'disabled' : '' %> class="w-16 h-16 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:pointer-events-none active:scale-95 text-3xl font-black rounded-2xl transition">+</button>
+            </div>
+
+            <!-- Quick Stop Add Buttons -->
+            <div id="quickStopButtons" class="<%= route.isLocked ? 'hidden' : 'flex' %> justify-center gap-2 mt-3">
+                <button type="button" onclick="adjustCount(2)" class="bg-slate-700/70 hover:bg-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl text-emerald-300 border border-slate-600 transition">+2 Stop</button>
+                <button type="button" onclick="adjustCount(5)" class="bg-slate-700/70 hover:bg-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl text-emerald-300 border border-slate-600 transition">+5 Stop</button>
+                <button type="button" onclick="adjustCount(10)" class="bg-slate-700/70 hover:bg-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl text-emerald-300 border border-slate-600 transition">+10 Stop</button>
+            </div>
+
+            <p id="syncStatus" class="text-xs text-slate-400 mt-4">
+                Status: <span class="text-emerald-400 font-semibold"><%= route.isLocked ? 'Locked & Submitted' : (route.tripStatus || 'Ready') %></span>
+            </p>
+        </div>
+
+        <!-- Action Buttons (Hidden once locked) -->
+        <div id="actionButtons" class="<%= route.isLocked ? 'hidden' : 'space-y-3' %>">
+            <button type="button" onclick="sendUpdate('En Route', false, true)" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-2xl text-sm shadow-lg transition">
+                🚌 Update Pickup Count (En Route)
+            </button>
+
+            <button type="button" onclick="confirmFinalSubmit()" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold py-4 rounded-2xl text-base shadow-lg shadow-emerald-900/50 transition">
+                🔒 Bus Reached Company (Final Submit & Lock)
+            </button>
+        </div>
+    </main>
+
+  <div id="driverConfig" data-route-id="<%= route.id %>" data-locked="<%= route.isLocked ? 'true' : 'false' %>" class="hidden"></div>
+
+    <script>
+        const configEl = document.getElementById("driverConfig");
+        const routeId = configEl.dataset.routeId;
+        let isRouteLocked = configEl.dataset.locked === "true";
+        function lockDriverUI() {
+            isRouteLocked = true;
+            document.getElementById("headcountInput").disabled = true;
+            document.getElementById("btnMinus").disabled = true;
+            document.getElementById("btnPlus").disabled = true;
+            document.getElementById("quickStopButtons").classList.add("hidden");
+            document.getElementById("actionButtons").classList.add("hidden");
+            document.getElementById("lockedBanner").classList.remove("hidden");
+            document.getElementById("lockedBanner").classList.add("flex");
+        }
+
+        function adjustCount(amount) {
+            if (isRouteLocked) return;
+            const input = document.getElementById("headcountInput");
+            let val = parseInt(input.value, 10) || 0;
+            val = Math.max(0, val + amount);
+            input.value = val;
+            sendUpdate("En Route", false, false);
+        }
+
+        function confirmFinalSubmit() {
+            if (isRouteLocked) return;
+            const count = document.getElementById("headcountInput").value;
+            const ok = confirm(`Confirm Final Headcount of ${count} employees?\n\nOnce submitted, your counter will be LOCKED and cannot be edited.`);
+            if (ok) {
+                sendUpdate("Arrived at Plant", true, true);
+            }
+        }
+
+        function sendUpdate(tripStatus, lockSubmission, showAlert) {
+            if (isRouteLocked) return;
+            const headcount = document.getElementById("headcountInput").value;
+            const statusEl = document.getElementById("syncStatus");
+
+            fetch("/driver/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ routeId, headcount, tripStatus, lockSubmission }),
+            })
+            .then((res) => res.json())
+            .then((data) => {
+                if (!data.success && data.isLocked) {
+                    lockDriverUI();
+                    alert(data.message);
+                    return;
+                }
+                if (data.isLocked) {
+                    lockDriverUI();
+                }
+                statusEl.innerHTML = `Status: <span class="text-emerald-400 font-bold">${data.tripStatus} • Synced at ${data.lastUpdated}</span>`;
+                if (showAlert) {
+                    alert(data.isLocked 
+                        ? `Final Headcount (${data.headcount}) submitted and LOCKED!` 
+                        : `Drop Count (${data.headcount}) synced to Admin!`);
+                }
+            })
+            .catch(() => {
+                statusEl.innerHTML = `Status: <span class="text-red-400 font-bold">⚠️ Network Sync Failed</span>`;
+            });
+        }
+
+        document.getElementById("headcountInput").addEventListener("input", () => {
+            if (!isRouteLocked) sendUpdate("En Route", false, false);
+        });
+    </script>
+</body>
+</html>

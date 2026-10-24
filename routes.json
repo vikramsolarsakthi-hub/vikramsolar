@@ -1,0 +1,29 @@
+[
+  {
+    "id": "route-1792843245202",
+    "routeName": "PETTAI",
+    "vehicleNo": "TN73VR5454",
+    "vehicleType": "Bus",
+    "driverName": "KANTHAN",
+    "contactNo": "9786991879",
+    "batch": "GENERAL SHIFT",
+    "driverPin": "1234",
+    "headcount": 52,
+    "tripStatus": "Arrived at Plant",
+    "lastUpdated": "11:47:28 pm",
+    "isLocked": true
+  },
+  {
+    "id": "route-1792843568146",
+    "routeName": "PAZHANI APPA",
+    "vehicleNo": "TN72BH5467",
+    "vehicleType": "Bus",
+    "driverName": "AGASTHIYAR",
+    "contactNo": "9786991879",
+    "batch": "NIGHT SHIFT",
+    "driverPin": "1234",
+    "headcount": 0,
+    "tripStatus": "Yet to Start",
+    "lastUpdated": "Never"
+  }
+]

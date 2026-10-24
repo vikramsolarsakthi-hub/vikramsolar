@@ -1,0 +1,18 @@
+{
+  "name": "vikram-bus-tracker",
+  "version": "1.0.0",
+  "description": "Bus employee headcount tracker for Vikram Solar",
+  "main": "server.js",
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.22.3"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

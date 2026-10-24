@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Login | Vikram Solar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-slate-800 p-8 rounded-3xl shadow-2xl border border-slate-700 w-full max-w-md">
+        <div class="text-center mb-6">
+            <img src="/logo.png" alt="Vikram Solar" class="h-12 mx-auto mb-3 object-contain bg-white px-3 py-1.5 rounded-xl" onerror="this.style.display='none'; document.getElementById('fallbackDriverLogo').style.display='inline-flex';">
+            <div id="fallbackDriverLogo" style="display:none;" class="inline-flex items-center justify-center bg-gradient-to-tr from-amber-500 to-emerald-500 text-slate-950 font-black px-4 py-2.5 rounded-2xl text-xl tracking-wider mb-3 shadow-lg">VS</div>
+            <h1 class="text-xl font-extrabold tracking-tight text-white">VIKRAM SOLAR</h1>
+            <p class="text-xs text-emerald-400 font-semibold uppercase tracking-widest mt-1">Driver Route Login</p>
+        </div>
+
+        <% if(error) { %>
+            <div class="mb-4 p-3 bg-red-900/50 border border-red-700 text-red-200 text-xs font-medium rounded-xl text-center">
+                ⚠️ <%= error %>
+            </div>
+        <% } %>
+
+        <form action="/driver/portal" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Select Your Assigned Route & Vehicle</label>
+                <select name="routeId" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 text-sm">
+                    <% if(routes.length === 0) { %>
+                        <option value="" disabled selected>No routes added by Admin yet</option>
+                    <% } else { %>
+                        <option value="" disabled selected>-- Choose Route / Vehicle --</option>
+                        <% routes.forEach(route => { %>
+                            <option value="<%= route.id %>"><%= route.routeName %> — <%= route.vehicleNo %> (<%= route.driverName %>)</option>
+                        <% }) %>
+                    <% } %>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">4-Digit Driver PIN</label>
+                <input type="password" name="pin" inputmode="numeric" placeholder="••••" required maxlength="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white tracking-widest text-center text-2xl font-mono focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <button type="submit" <% if(routes.length === 0) { %>disabled<% } %> class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-emerald-900/40">
+                Open Driver Counter
+            </button>
+        </form>
+    </div>
+
+</body>
+</html>

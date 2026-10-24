@@ -4,26 +4,15 @@ const fs = require("fs");
 const app = express();
 
 app.set("view engine", "ejs");
-app.set(
-  "views",
-  path.join(process.env.VERCEL ? "/tmp" : __dirname, "routes.json"),
-);
+app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(
-  express.static(
-    path.join(process.env.VERCEL ? "/tmp" : __dirname, "routes.json"),
-  ),
-);
+app.use(express.static(path.join(__dirname, "public")));
 
-const ROUTES_FILE = path.join(
-  process.env.VERCEL ? "/tmp" : __dirname,
-  "routes.json",
-);
-const BATCHES_FILE = path.join(
-  process.env.VERCEL ? "/tmp" : __dirname,
-  "routes.json",
-);
+// Use /tmp on Vercel (writable directory), or project folder locally
+const STORAGE_DIR = process.env.VERCEL ? "/tmp" : __dirname;
+const ROUTES_FILE = path.join(STORAGE_DIR, "routes.json");
+const BATCHES_FILE = path.join(STORAGE_DIR, "batches.json");
 
 function loadJSON(filePath) {
   try {
@@ -58,6 +47,8 @@ app.get("/", (req, res) => {
 
 // Admin Dashboard
 app.get("/admin", (req, res) => {
+  routesData = loadJSON(ROUTES_FILE).filter((r) => r && r.routeName);
+  batchesData = loadJSON(BATCHES_FILE).filter((b) => b && b.batchName);
   const totalEmployees = routesData.reduce(
     (acc, r) => acc + (parseInt(r.headcount, 10) || 0),
     0,
@@ -71,6 +62,8 @@ app.get("/admin", (req, res) => {
 
 // Live JSON API for background Admin sync
 app.get("/api/routes", (req, res) => {
+  routesData = loadJSON(ROUTES_FILE).filter((r) => r && r.routeName);
+  batchesData = loadJSON(BATCHES_FILE).filter((b) => b && b.batchName);
   const totalEmployees = routesData.reduce(
     (acc, r) => acc + (parseInt(r.headcount, 10) || 0),
     0,
@@ -89,21 +82,21 @@ app.post("/admin/add-batch", (req, res) => {
     return res.redirect("/admin");
   }
 
-  const newBatch = {
+  batchesData = loadJSON(BATCHES_FILE);
+  batchesData.push({
     id: "batch-" + Date.now(),
     batchName: batchName.trim(),
     shiftTime: shiftTime.trim(),
     shiftType: (shiftType || "Regular").trim(),
-  };
+  });
 
-  batchesData.push(newBatch);
   saveJSON(BATCHES_FILE, batchesData);
   res.redirect("/admin");
 });
 
 // Admin: Delete Batch
 app.post("/admin/delete-batch/:id", (req, res) => {
-  batchesData = batchesData.filter((b) => b.id !== req.params.id);
+  batchesData = loadJSON(BATCHES_FILE).filter((b) => b.id !== req.params.id);
   saveJSON(BATCHES_FILE, batchesData);
   res.redirect("/admin");
 });
@@ -125,7 +118,8 @@ app.post("/admin/add-route", (req, res) => {
     return res.redirect("/admin");
   }
 
-  const newRoute = {
+  routesData = loadJSON(ROUTES_FILE);
+  routesData.push({
     id: "route-" + Date.now(),
     routeName: routeName.trim(),
     vehicleNo: vehicleNo.trim().toUpperCase(),
@@ -139,15 +133,15 @@ app.post("/admin/add-route", (req, res) => {
     tripStatus: "Yet to Start",
     isLocked: false,
     lastUpdated: "Never",
-  };
+  });
 
-  routesData.push(newRoute);
   saveJSON(ROUTES_FILE, routesData);
   res.redirect("/admin");
 });
 
-// Admin: Unlock a Driver's Route (in case driver locked by mistake)
+// Admin: Unlock a Driver's Route
 app.post("/admin/unlock-route/:id", (req, res) => {
+  routesData = loadJSON(ROUTES_FILE);
   const route = routesData.find((r) => r.id === req.params.id);
   if (route) {
     route.isLocked = false;
@@ -159,14 +153,14 @@ app.post("/admin/unlock-route/:id", (req, res) => {
 
 // Admin: Delete Single Route
 app.post("/admin/delete-route/:id", (req, res) => {
-  routesData = routesData.filter((r) => r.id !== req.params.id);
+  routesData = loadJSON(ROUTES_FILE).filter((r) => r.id !== req.params.id);
   saveJSON(ROUTES_FILE, routesData);
   res.redirect("/admin");
 });
 
-// Admin: Reset Shift Counts (Resets counts to 0 and unlocks all drivers)
+// Admin: Reset Shift Counts
 app.post("/admin/reset", (req, res) => {
-  routesData = routesData.map((r) => ({
+  routesData = loadJSON(ROUTES_FILE).map((r) => ({
     ...r,
     headcount: 0,
     tripStatus: "Yet to Start",
@@ -186,11 +180,13 @@ app.post("/admin/clear-all", (req, res) => {
 
 // Driver Login Page
 app.get("/driver/login", (req, res) => {
+  routesData = loadJSON(ROUTES_FILE).filter((r) => r && r.routeName);
   res.render("driver-login", { routes: routesData, error: null });
 });
 
 // Driver Authentication & Portal Entry
 app.post("/driver/portal", (req, res) => {
+  routesData = loadJSON(ROUTES_FILE).filter((r) => r && r.routeName);
   const { routeId, pin } = req.body;
   const route = routesData.find((r) => r.id === routeId);
 
@@ -206,6 +202,7 @@ app.post("/driver/portal", (req, res) => {
 
 // Driver Update Headcount & Lock Endpoint
 app.post("/driver/update", (req, res) => {
+  routesData = loadJSON(ROUTES_FILE);
   const { routeId, headcount, tripStatus, lockSubmission } = req.body;
   const route = routesData.find((r) => r.id === routeId);
 
@@ -213,7 +210,6 @@ app.post("/driver/update", (req, res) => {
     return res.status(404).json({ success: false, message: "Route not found" });
   }
 
-  // Block any changes if route is already locked
   if (route.isLocked) {
     return res.status(403).json({
       success: false,
@@ -235,6 +231,7 @@ app.post("/driver/update", (req, res) => {
   }
 
   route.lastUpdated = new Date().toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -251,8 +248,9 @@ app.post("/driver/update", (req, res) => {
   });
 });
 
+// Local server startup
 const PORT = process.env.PORT || 3000;
-if (process.env.NODE_ENV !== "production") {
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(
       `Vikram Solar Fleet Tracker Live on http://localhost:${PORT}/admin`,
@@ -260,4 +258,5 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
+// Export Express app for Vercel Serverless
 module.exports = app;

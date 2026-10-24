@@ -4,13 +4,26 @@ const fs = require("fs");
 const app = express();
 
 app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
+app.set(
+  "views",
+  path.join(process.env.VERCEL ? "/tmp" : __dirname, "routes.json"),
+);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(
+  express.static(
+    path.join(process.env.VERCEL ? "/tmp" : __dirname, "routes.json"),
+  ),
+);
 
-const ROUTES_FILE = path.join(__dirname, "routes.json");
-const BATCHES_FILE = path.join(__dirname, "batches.json");
+const ROUTES_FILE = path.join(
+  process.env.VERCEL ? "/tmp" : __dirname,
+  "routes.json",
+);
+const BATCHES_FILE = path.join(
+  process.env.VERCEL ? "/tmp" : __dirname,
+  "routes.json",
+);
 
 function loadJSON(filePath) {
   try {
@@ -239,10 +252,12 @@ app.post("/driver/update", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(`Vikram Solar Fleet Tracker Live!`);
-  console.log(`Admin Portal  : http://localhost:${PORT}/admin`);
-  console.log(`Driver Portal : http://localhost:${PORT}/driver/login`);
-  console.log(`====================================================`);
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(
+      `Vikram Solar Fleet Tracker Live on http://localhost:${PORT}/admin`,
+    );
+  });
+}
+
+module.exports = app;

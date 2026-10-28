@@ -7,3 +7,5 @@ vikram-solar-*.json
 !package.json
 !package-lock.json
 !vercel.json
+.vercel
+.env*
